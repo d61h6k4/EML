@@ -1,44 +1,43 @@
-name: CI
+name: Python CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
   workflow_dispatch:
 
 jobs:
   build:
-
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-20.04]
-        python-version: ['3.7','3.8', '3.9']
+        python-version: ["3.7", "3.8", "3.9"]
     steps:
-    - uses: actions/checkout@v2
-    - name: setup python
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
+      - uses: actions/checkout@v2
+      - name: setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
 
-     # Caches and restores the bazel build directory.
-     - name: Cache bazel build results
-       uses: actions/cache@v2.0.0
-       env:
-         cache-name: bazel-cache
-       with:
-         path: ~/.cache/bazel
-         key: ${{ runner.os }}-${{ env.cache-name }}-${{ github.ref }}
-         restore-keys: |
-           ${{ runner.os }}-${{ env.cache-name }}-master
+      # Caches and restores the bazel build directory.
+      - name: Cache bazel build results
+        uses: actions/cache@v2.0.0
+        env:
+          cache-name: bazel-cache
+        with:
+          path: ~/.cache/bazel
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ github.ref }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-master
 
-    - name: Install Dependencies
-      run: pip install pytype
+      - name: Install Dependencies
+        run: pip install pytype
 
-    - name: Type-Check
-      if: matrix.python-version != '3.9'
-      run: pytype -j auto
+      - name: Type-Check
+        if: matrix.python-version != '3.9'
+        run: pytype -j auto
 
-    - name: Run Tests
-      run: bazel test //...
+      - name: Run Tests
+        run: bazel test //...
