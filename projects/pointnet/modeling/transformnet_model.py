@@ -63,8 +63,6 @@ class TransformNetModel(tf.keras.Model):
 
         num_points: int = self._input_specs.shape[1]
         points_dim: int = self._input_specs.shape[2]
-        assert num_points == 1024
-        assert points_dim == 3
         inputs = tf.keras.Input(shape=self._input_specs.shape[1:])
 
         x = MLP(num_outputs_channel=64,
@@ -114,13 +112,13 @@ class TransformNetModel(tf.keras.Model):
                use_sync_bn=use_sync_bn,
                norm_momentum=norm_momentum,
                norm_epsilon=norm_epsilon)(x)
-        x = tf.keras.layers.Dense(points_dim * self._k,
+        x = tf.keras.layers.Dense(self._k * self._k,
                                   activation=None,
                                   use_bias=True,
                                   kernel_initializer=kernel_initializer,
                                   bias_initializer=tf.keras.initializers.Constant(
-                                      value=tf.reshape(tf.eye(num_rows=points_dim, num_columns=self._k), [-1])))(x)
-        x = tf.keras.layers.Reshape(target_shape=(points_dim, self._k))(x)
+                                      value=tf.reshape(tf.eye(num_rows=self._k, num_columns=self._k), [-1])))(x)
+        x = tf.keras.layers.Reshape(target_shape=(self._k, self._k))(x)
 
         super().__init__(inputs=inputs, outputs=x, **kwargs)
 

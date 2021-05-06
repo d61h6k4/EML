@@ -20,13 +20,21 @@ from projects.pointnet.modeling.transformnet_model import TransformNetModel
 
 class TransformNetModelTest(tf.test.TestCase):
 
-    def test_transformnet_model_constructor(self):
+    def test_input_transformnet_model_constructor(self):
         inputs = tf.keras.Input(shape=(1024, 3, 1), batch_size=1)
 
         tnet = TransformNetModel(tf.keras.layers.InputSpec(shape=(1, 1024, 3, 1)), 3)
         features = tnet(inputs, training=True)
 
         self.assertEqual([1, 3, 3], features.shape.as_list())
+
+    def test_feature_transformnet_model_constructor(self):
+        inputs = tf.keras.Input(shape=(1024, 1, 64), batch_size=1)
+
+        tnet = TransformNetModel(tf.keras.layers.InputSpec(shape=(1, 1024, 1, 64)), 64)
+        features = tnet(inputs, training=True)
+
+        self.assertEqual([1, 64, 64], features.shape.as_list())
 
 
 if __name__ == "__main__":
