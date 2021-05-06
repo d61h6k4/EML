@@ -33,7 +33,7 @@ jobs:
             ${{ runner.os }}-${{ env.cache-name }}-main
 
       - name: Install Dependencies
-        run: pip install pytype
+        run: pip install -r requirements.txt && pip install pytype
 
       - name: Type-Check
         if: matrix.python-version != '3.9'
