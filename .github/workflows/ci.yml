@@ -2,9 +2,9 @@ name: Python CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
           path: ~/.cache/bazel
           key: ${{ runner.os }}-${{ env.cache-name }}-${{ github.ref }}
           restore-keys: |
-            ${{ runner.os }}-${{ env.cache-name }}-master
+            ${{ runner.os }}-${{ env.cache-name }}-main
 
       - name: Install Dependencies
         run: pip install pytype
