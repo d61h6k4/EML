@@ -24,6 +24,9 @@ from projects.pointnet.modeling.layers.nn_blocks import FC, MLP
 class PointNetModel(tf.keras.Model):
     """The PointNet model class."""
 
+    FEATURE_PROJECT_MATRIX_KEY = "feature_project_matrix"
+    CLASSES_SCORE_KEY = "classes_score"
+
     def __init__(self,
                  input_specs: tf.keras.layers.InputSpec,
                  classes_num: int,
@@ -106,7 +109,7 @@ class PointNetModel(tf.keras.Model):
                 norm_epsilon=norm_epsilon)(x)
 
         feature_project_matrix = feature_tnet(x)
-        endpoints['feature_project_matrix'] = feature_project_matrix
+        endpoints[self.FEATURE_PROJECT_MATRIX_KEY] = feature_project_matrix
 
         local_features = tf.keras.layers.Lambda(lambda t: tf.squeeze(t, axis=[2]))(x)
         local_features = tf.keras.layers.Lambda(lambda tm: tf.matmul(tm[0], tm[1]))(
@@ -170,7 +173,7 @@ class PointNetModel(tf.keras.Model):
                            use_sync_bn=use_sync_bn,
                            norm_momentum=norm_momentum,
                            norm_epsilon=norm_epsilon)(x)
-        endpoints['classes_score'] = classes_score
+        endpoints[self.CLASSES_SCORE_KEY] = classes_score
 
         super().__init__(inputs=point_cloud, outputs=endpoints, **kwargs)
 

@@ -30,7 +30,7 @@ class PointNetModelTest(tf.test.TestCase):
 
         features = point_net(inputs)
 
-        self.assertEqual([1, 40], features['classes_score'].shape.as_list())
+        self.assertEqual([1, 40], features[point_net.CLASSES_SCORE_KEY].shape.as_list())
 
 
 if __name__ == "__main__":
