@@ -16,7 +16,7 @@
 
 import tensorflow as tf
 
-from typing import Dict
+from typing import Mapping
 from projects.pointnet.modeling.layers.nn_blocks import FC, MLP
 
 
@@ -122,7 +122,7 @@ class TransformNetModel(tf.keras.Model):
 
         super().__init__(inputs=inputs, outputs=x, **kwargs)
 
-    def get_config(self) -> Dict:
+    def get_config(self) -> Mapping[str, object]:
         config = {
             'input_specs': self._input_specs,
             'k': self._k,
