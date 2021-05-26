@@ -78,6 +78,7 @@ class ModelNetConfig(tfds.core.BuilderConfig):
 class ModelNet(tfds.core.GeneratorBasedBuilder):
     """Family of ModelNet datasets"""
     BUILDER_CONFIGS = [
+        # pytype: disable=wrong-keyword-args
         ModelNetConfig(
             categories_num=ModelNetCategoriesNum.SMALL,
             name="ModelNet10",
@@ -88,6 +89,7 @@ class ModelNet(tfds.core.GeneratorBasedBuilder):
             name="ModelNet40",
             description="ModelNet with 40 categories",
         )
+        # pytype: enable=wrong-keyword-args
     ]
 
     VERSION = tfds.core.Version('1.0.0')
