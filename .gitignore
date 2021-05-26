@@ -127,3 +127,12 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Bazel
+bazel-EML
+bazel-bin
+bazel-out
+bazel-testlogs
+node_modules/
+package-lock.json
+package.json
