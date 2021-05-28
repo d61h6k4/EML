@@ -81,12 +81,12 @@ class ModelNet(tfds.core.GeneratorBasedBuilder):
         # pytype: disable=wrong-keyword-args
         ModelNetConfig(
             categories_num=ModelNetCategoriesNum.SMALL,
-            name="ModelNet10",
+            name="10",
             description="ModelNet with 10 categories",
         ),
         ModelNetConfig(
             categories_num=ModelNetCategoriesNum.MEDIUM,
-            name="ModelNet40",
+            name="40",
             description="ModelNet with 40 categories",
         )
         # pytype: enable=wrong-keyword-args
@@ -95,21 +95,19 @@ class ModelNet(tfds.core.GeneratorBasedBuilder):
     VERSION = tfds.core.Version('1.0.0')
 
     def _info(self) -> tfds.core.DatasetInfo:
-        return tfds.core.DatasetInfo(builder=self,
-                                     features=tfds.features.FeaturesDict({
-                                         "points_cloud":
-                                             tfds.features.Tensor(shape=(self.builder_config.sample_points_num, 3),
-                                                                  dtype=tf.float32),
-                                         "label":
-                                             tfds.features.ClassLabel(names=self.builder_config.classes_name)
-                                     }),
-                                     homepage='https://modelnet.cs.princeton.edu',
-                                     description=_DESCRIPTION,
-                                     citation=_CITATION)
+        return tfds.core.DatasetInfo(
+            builder=self,
+            features=tfds.features.FeaturesDict({
+                "point_cloud": tfds.features.Tensor(shape=(self.builder_config.sample_points_num, 3), dtype=tf.float32),
+                "label": tfds.features.ClassLabel(names=self.builder_config.classes_name)
+            }),
+            homepage='https://modelnet.cs.princeton.edu',
+            description=_DESCRIPTION,
+            citation=_CITATION)
 
     def _split_generators(self, dl_manager: tfds.download.DownloadManager) -> Mapping[str, object]:
         extracted_path = dl_manager.download_and_extract(tfds.download.Resource(url=self.builder_config.url))
-        dataset_path = extracted_path / self.builder_config.name
+        dataset_path = extracted_path / f"ModelNet{self.builder_config.name}"
         return {
             'train': self._generate_examples(extracted_path=dataset_path, split='train'),
             'test': self._generate_examples(extracted_path=dataset_path, split='test'),
@@ -123,7 +121,7 @@ class ModelNet(tfds.core.GeneratorBasedBuilder):
                 for off in split_objects_of_class.iterdir():
                     key = off.stem
                     example = {
-                        "points_cloud":
+                        "point_cloud":
                             np.array(trimesh.load(str(off)).sample(self.builder_config.sample_points_num), np.float32),
                         "label":
                             class_name
