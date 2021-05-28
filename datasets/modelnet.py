@@ -53,7 +53,7 @@ class ModelNetCategoriesNum(enum.IntEnum):
 @dataclasses.dataclass
 class ModelNetConfig(tfds.core.BuilderConfig):
     """Builder config for ModelNet"""
-    sample_points_num: int = 2048
+    sample_points_num: int = 32
     categories_num: ModelNetCategoriesNum = ModelNetCategoriesNum.SMALL
     url: str = 'http://3dvision.princeton.edu/projects/2014/3DShapeNets/ModelNet10.zip'
     classes_name: List[str] = dataclasses.field(default_factory=list)
@@ -88,7 +88,7 @@ class ModelNet(tfds.core.GeneratorBasedBuilder):
             categories_num=ModelNetCategoriesNum.MEDIUM,
             name="40",
             description="ModelNet with 40 categories",
-        )
+        ),
         # pytype: enable=wrong-keyword-args
     ]
 

@@ -16,20 +16,23 @@
 from typing import Text, Mapping, Tuple, Iterable, NamedTuple, Generator
 
 import argparse
-import functools
+import datetime
 import jax
 import optax
 import logging
+import pathlib
+import tree
+
 import rich.logging
 import rich.progress
-import tree
 
 import numpy as np
 import jax.numpy as jnp
 import haiku as hk
 import tensorflow as tf
 import tensorflow_datasets as tfds
-import projects.pointnet.modeling.pointnet_model as pointnet
+
+from projects.pointnet.modeling import pointnet_model as pointnet
 
 import datasets.modelnet
 
@@ -72,6 +75,7 @@ def parse_args():
                         type=int,
                         default=TRAIN_LOG_EVERY,
                         help="Controls the frequency of log display updating.")
+    parser.add_argument('--logdir', type=pathlib.Path, help="Path to the tensorboard's log dir.", required=True)
 
     args = parser.parse_args()
 
@@ -82,6 +86,8 @@ def parse_args():
     global_variables['TRAIN_EPOCHS'] = args.train_epochs
     global_variables['TRAIN_LR_INIT'] = args.train_lr_init
     global_variables['TRAIN_LOG_EVERY'] = args.train_log_every
+
+    return args
 
 
 def load(split: tfds.Split, *, is_training: bool, batch_size: int) -> Generator[Batch, None, None]:
@@ -186,28 +192,63 @@ def initial_state(rng: jnp.ndarray, batch: Batch) -> TrainState:
     return TrainState(params, state, opt_state)
 
 
-def main():
-    parse_args()
+@jax.jit
+def eval_batch(params: hk.Params, state: hk.State, batch: Batch, rng: jnp.ndarray) -> jnp.ndarray:
+    """Evaluates a batch."""
+    preds, _ = forward.apply(params, state, rng, batch, is_training=False)
+    logits = preds["logits"]
+    predicted_label = jnp.argmax(logits, axis=-1)
+    correct = jnp.sum(jnp.equal(predicted_label, batch['label']))
+    return correct.astype(jnp.float32)
 
+
+def evaluate(split: tfds.Split, params: hk.Params, state: hk.State, rng: jnp.ndarray) -> Scalars:
+    """Evaluates the model at the given params/state."""
+    test_dataset = load(split, is_training=False, batch_size=10)
+    correct = jnp.array(0)
+    total = 0
+    for batch in test_dataset:
+        correct += eval_batch(params, state, batch, rng)
+        total += batch['label'].shape[0]
+    return {'top_1_acc': correct.item() / total}
+
+
+def main():
+    args = parse_args()
+
+    tensorboard_writer = tf.summary.create_file_writer(str(args.logdir / datetime.datetime.now().isoformat()))
     train_dataset = load(tfds.Split.TRAIN, is_training=True, batch_size=TRAIN_BATCH_SIZE)
 
     rng = jax.random.PRNGKey(TRAIN_INIT_RANDOM_SEED)
     # Initialization requires an example input.
-    batch = next(train_dataset)
-    train_state = initial_state(rng, batch)
+    eval_batch = next(train_dataset)
+    train_state = initial_state(rng, eval_batch)
 
     num_train_steps = int(TRAIN_EPOCHS * TRAIN_NUM_EXAMPLES / TRAIN_BATCH_SIZE)
-    for step_num in rich.progress.track(range(num_train_steps), description='Trainig...'):
-        # Take a single training step
-        with jax.profiler.StepTraceAnnotation('train', step_num=step_num):
-            batch = next(train_dataset)
-            current_rng, rng = jax.random.split(rng)
-            train_state, train_scalars = train_step(train_state, batch, current_rng)
 
-        # Log progress at fixed intervals.
-        if step_num and step_num % TRAIN_LOG_EVERY == 0:
-            train_scalars = jax.tree_map(lambda v: np.mean(v).item(), jax.device_get(train_scalars))
-            logging.info('[Train %s/%s] %s', step_num, num_train_steps, train_scalars)
+    with tensorboard_writer.as_default():
+
+        for step_num in rich.progress.track(range(num_train_steps), description='Trainig...'):
+            # Take a single training step
+            with jax.profiler.StepTraceAnnotation('train', step_num=step_num):
+                batch = next(train_dataset)
+                current_rng, rng = jax.random.split(rng)
+                train_state, train_scalars = train_step(train_state, batch, current_rng)
+
+            # Log progress at fixed intervals.
+            if step_num and step_num % TRAIN_LOG_EVERY == 0:
+                train_scalars = jax.tree_map(lambda v: np.mean(v).item(), jax.device_get(train_scalars))
+                for k, v in train_scalars.items():
+                    tf.summary.scalar(k, v, step=step_num)
+
+                logging.info('[Train %s/%s] %s', step_num, num_train_steps, train_scalars)
+
+        # Once training has finished we run eval one more time to get final results.
+        eval_scalars = evaluate(tfds.Split.TEST, train_state.params, train_state.state, rng)
+        for k, v in eval_scalars.items():
+            tf.summary.scalar(k, v, step=num_train_steps)
+
+        logging.info('[Eval FINAL]: %s', eval_scalars)
 
 
 if __name__ == "__main__":
