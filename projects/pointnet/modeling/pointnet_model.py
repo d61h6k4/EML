@@ -146,7 +146,9 @@ class TNet(hk.Module):
         x = FC(512, bn_config=self._bn_config, name="tfc_512")(x, is_training, test_local_stats=test_local_stats)
         x = FC(256, bn_config=self._bn_config, name="tfc_256")(x, is_training, test_local_stats=test_local_stats)
         x = hk.Linear(self._k * self._k,
-                      w_init=hk.initializers.Constant(jnp.eye(self._k, self._k).flatten()),
+                      with_bias=True,
+                      w_init=hk.initializers.Identity(gain=0),
+                      b_init=hk.initializers.Constant(jnp.eye(self._k, self._k).flatten()),
                       name="tlinear")(x)
         x = hk.Reshape(output_shape=(self._k, self._k), name="treshape_matrix")(x)
 
@@ -171,10 +173,8 @@ class PointNet(hk.Module):
     def __call__(self,
                  inputs: jnp.ndarray,
                  is_training: bool,
-                 rng,
                  test_local_stats: bool = False) -> Mapping[str, jnp.ndarray]:
 
-        rng = hk.PRNGSequence(rng)
         _, num_points, points_dim = inputs.shape
 
         x = inputs
@@ -182,7 +182,7 @@ class PointNet(hk.Module):
         input_transformer = TNet(3, self._bn_config, name="InputTNet")(as_grey_image,
                                                                        is_training,
                                                                        test_local_stats=test_local_stats)
-        x = jax.lax.batch_matmul(x, input_transformer)
+        x = jax.vmap(jnp.matmul)(x, input_transformer)
         x = jnp.expand_dims(x, -1)
         x = MLP(64, kernel_shape=(1, points_dim), bn_config=self._bn_config, padding='VALID',
                 name="pmlp_input_64")(x, is_training, test_local_stats=test_local_stats)
@@ -192,7 +192,7 @@ class PointNet(hk.Module):
                                                                             is_training,
                                                                             test_local_stats=test_local_stats)
         x = jnp.squeeze(x, 2)
-        x = jax.lax.batch_matmul(x, feature_transformer)
+        x = jax.vmap(jnp.matmul)(x, feature_transformer)
         x = jnp.expand_dims(x, 2)
 
         x = MLP(64, kernel_shape=(1, 1), bn_config=self._bn_config, padding='VALID',
@@ -204,12 +204,11 @@ class PointNet(hk.Module):
         x = hk.MaxPool(window_shape=(num_points, 1, 1), strides=(2, 2, 1), padding='VALID', name="pmaxpool2d")(x)
 
         # PointNet classification head
-        x = hk.Flatten()(x)
+        x = hk.Flatten(name="preshape_clshead")(x)
         x = FC(512, bn_config=self._bn_config, name="pfc_512")(x, is_training, test_local_stats=test_local_stats)
-        x = hk.dropout(next(rng), 0.7, x)
+        x = hk.dropout(hk.next_rng_key(), 0.3, x)
         x = FC(256, bn_config=self._bn_config, name="pfc_256")(x, is_training, test_local_stats=test_local_stats)
-        x = hk.dropout(next(rng), 0.7, x)
-        x = FC(self._class_num, bn_config=self._bn_config, name="pfc_class_num")(x,
-                                                                                 is_training,
-                                                                                 test_local_stats=test_local_stats)
-        return {"feature_transformer": feature_transformer, "x": x}
+        x = hk.dropout(hk.next_rng_key(), 0.3, x)
+        x = hk.Linear(self._class_num, with_bias=True)(x)
+
+        return {"logits": x, "feature_transformer": feature_transformer}

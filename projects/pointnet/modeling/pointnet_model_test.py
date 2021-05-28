@@ -19,7 +19,7 @@ import jax
 import jax.numpy as jnp
 import haiku as hk
 
-from projects.pointnet.modeling import pointnet
+import projects.pointnet.modeling.pointnet_model as pointnet
 
 
 class MLPTest(unittest.TestCase):
@@ -55,6 +55,7 @@ class TNetTest(unittest.TestCase):
 
         logits = model(image, is_training=True)
         self.assertEqual(logits.shape, (2, 3, 3))
+        print(logits)
 
     @hk.testing.transform_and_run
     def test_feature_transform_shape(self):
@@ -70,11 +71,10 @@ class PointNetTest(unittest.TestCase):
     @hk.testing.transform_and_run
     def test_input_transform_shape(self):
         image = jnp.ones([2, 10, 3])
-        rng = jax.random.PRNGKey(42)
 
         model = pointnet.PointNet(2, {})
-        preds = model(image, is_training=True, rng=rng)
-        self.assertEqual(preds["x"].shape, (2, 2))
+        preds = model(image, is_training=True)
+        self.assertEqual(preds["logits"].shape, (2, 2))
         self.assertEqual(preds["feature_transformer"].shape, (2, 64, 64))
 
 

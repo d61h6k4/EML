@@ -2,8 +2,8 @@ load("@rules_python//python:defs.bzl", "py_library", "py_test")
 load("@emz_deps//:requirements.bzl", "requirement")
 
 py_library(
-    name = "pointnet",
-    srcs = ["pointnet.py"],
+    name = "pointnet_model",
+    srcs = ["pointnet_model.py"],
     visibility = ["//visibility:public"],
     deps = [
         requirement("jax"),
@@ -13,10 +13,10 @@ py_library(
 )
 
 py_test(
-    name = "pointnet_test",
-    srcs = ["pointnet_test.py"],
+    name = "pointnet_model_test",
+    srcs = ["pointnet_model_test.py"],
     deps = [
-        ":pointnet",
+        ":pointnet_model",
         requirement("jax"),
         requirement("dm_haiku"),
     ],
