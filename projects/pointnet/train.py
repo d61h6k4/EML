@@ -43,7 +43,7 @@ TRAIN_LR_WARMUP_EPOCHS = 5
 TRAIN_EPOCHS = 50
 TRAIN_LR_INIT = 0.32
 TRAIN_NUM_EXAMPLES = 3991
-TRAIN_SMOOTHING = 0
+TRAIN_SMOOTHING = 0.1
 TRAIN_WEIGHT_DECAY = 1e-4
 TRAIN_LOG_EVERY = 200
 
@@ -92,6 +92,15 @@ def parse_args():
 
 def load(split: tfds.Split, *, is_training: bool, batch_size: int) -> Generator[Batch, None, None]:
     """Load the given split of ModelNet10."""
+
+    def augment(x):
+        points = x["point_cloud"]
+        # jitter points
+        points += tf.random.uniform(points.shape, -0.005, 0.005, dtype=tf.float32)
+        # shuffle points
+        points = tf.random.shuffle(points)
+        return {"point_cloud": points, "label": x["label"]}
+
     ds = tfds.load("ModelNet/10", split=split)
     options = tf.data.Options()
     options.experimental_threading.private_threadpool_size = 48
@@ -104,9 +113,10 @@ def load(split: tfds.Split, *, is_training: bool, batch_size: int) -> Generator[
     if is_training:
         ds = ds.repeat()
         ds = ds.shuffle(buffer_size=10 * batch_size, seed=0)
+        ds = ds.map(augment, num_parallel_calls=tf.data.AUTOTUNE)
 
     ds = ds.batch(batch_size)
-    ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
+    ds = ds.prefetch(tf.data.AUTOTUNE)
     yield from tfds.as_numpy(ds)
 
 
@@ -120,24 +130,21 @@ def _forward(batch: Batch, is_training: bool) -> jnp.ndarray:
 forward = hk.transform_with_state(_forward)
 
 
-def lr_schedule(step: jnp.ndarray) -> jnp.ndarray:
-    """Cosine learning rate schedule."""
-    steps_per_epoch = TRAIN_NUM_EXAMPLES / TRAIN_BATCH_SIZE
-    warmup_steps = TRAIN_LR_WARMUP_EPOCHS * steps_per_epoch
-    training_steps = TRAIN_EPOCHS * steps_per_epoch
-
-    lr = TRAIN_LR_INIT * TRAIN_BATCH_SIZE / 256
-    scaled_step = jnp.maximum(step - warmup_steps, 0) / (training_steps - warmup_steps)
-    lr *= 0.5 * (1.0 + jnp.cos(jnp.pi * scaled_step))
-    if warmup_steps:
-        lr *= jnp.minimum(step / warmup_steps, 1.0)
-
-    return lr
-
-
 def make_optimizer() -> optax.GradientTransformation:
     """SGD with nesterov momentum and a custom lr schedule."""
-    return optax.chain(optax.scale_by_adam(), optax.scale_by_schedule(lr_schedule), optax.scale(-1))
+    steps_per_epoch = TRAIN_NUM_EXAMPLES / TRAIN_BATCH_SIZE
+    schedules = [
+        optax.linear_schedule(init_value=1e-5,
+                              end_value=TRAIN_LR_INIT,
+                              transition_steps=TRAIN_LR_WARMUP_EPOCHS * steps_per_epoch),
+        optax.cosine_decay_schedule(init_value=TRAIN_LR_INIT,
+                                    decay_steps=int((TRAIN_EPOCHS - TRAIN_LR_WARMUP_EPOCHS) * steps_per_epoch),
+                                    alpha=1e-5)
+    ]
+    return optax.chain(
+        optax.scale_by_adam(),
+        optax.scale_by_schedule(optax.join_schedules(schedules, [TRAIN_LR_WARMUP_EPOCHS * steps_per_epoch])),
+        optax.scale(-1))
 
 
 def l2_loss(params: Iterable[jnp.ndarray]) -> jnp.ndarray:
