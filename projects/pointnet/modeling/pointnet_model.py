@@ -206,9 +206,9 @@ class PointNet(hk.Module):
         # PointNet classification head
         x = hk.Flatten(name="preshape_clshead")(x)
         x = FC(512, bn_config=self._bn_config, name="pfc_512")(x, is_training, test_local_stats=test_local_stats)
-        x = hk.dropout(hk.next_rng_key(), 0.3, x)
+        x = hk.dropout(hk.next_rng_key(), 0.7, x)
         x = FC(256, bn_config=self._bn_config, name="pfc_256")(x, is_training, test_local_stats=test_local_stats)
-        x = hk.dropout(hk.next_rng_key(), 0.3, x)
+        x = hk.dropout(hk.next_rng_key(), 0.7, x)
         x = hk.Linear(self._class_num, with_bias=True)(x)
 
         return {"logits": x, "feature_transformer": feature_transformer}
