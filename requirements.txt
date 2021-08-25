@@ -1,4 +1,4 @@
-tensorflow==2.5.0
+tensorflow==2.5.1
 tensorflow-datasets==4.3.0
 trimesh==3.9.19
 jax==0.2.13
